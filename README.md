@@ -18,7 +18,7 @@
 
 Tabapagos busca simplificar las ventas de pequeños negocios desde un teléfono o una tableta Android. Cada dispositivo conserva sus productos, existencias y ventas para continuar trabajando en efectivo cuando no haya conexión.
 
-Este repositorio **público** corresponde exclusivamente a la aplicación móvil/tableta. El backend y la landing se desarrollan en repositorios independientes.
+Este repositorio **público** corresponde exclusivamente a la aplicación móvil/tableta. El backend se desarrolla en [tabapagos_api](https://github.com/xalpati/tabapagos_api).
 
 ## 🛍️ Funciones previstas
 
@@ -83,7 +83,7 @@ La compatibilidad Bluetooth y los formatos se comprobarán con equipos físicos 
 |---|---|
 | **Flutter + Dart** | Este repositorio: interfaz Android para móvil/tableta y operación comercial local |
 | **Laravel + PHP + MySQL** | [tabapagos_api](https://github.com/xalpati/tabapagos_api): identidad, cuentas bancarias, cobros, webhook y eventos |
-| **Vue** | Landing en un repositorio independiente: presentación, registro previo a descarga y guía de instalación |
+| **Vue** | Sitio público: presentación, registro previo a descarga y guía de instalación |
 
 La persistencia local y los complementos Android se seleccionarán al preparar la base técnica. El tema visual y la versión mínima de Android siguen por definir.
 
