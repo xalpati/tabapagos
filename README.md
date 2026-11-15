@@ -83,7 +83,6 @@ La compatibilidad Bluetooth y los formatos se comprobarán con equipos físicos 
 |---|---|
 | **Flutter + Dart** | Este repositorio: interfaz Android para móvil/tableta y operación comercial local |
 | **Laravel + PHP + MySQL** | [tabapagos_api](https://github.com/xalpati/tabapagos_api): identidad, cuentas bancarias, cobros, webhook y eventos |
-| **Vue** | Sitio público: presentación, registro previo a descarga y guía de instalación |
 
 La persistencia local y los complementos Android se seleccionarán al preparar la base técnica. El tema visual y la versión mínima de Android siguen por definir.
 
@@ -109,9 +108,3 @@ Actualmente el contenido versionado es la presentación del proyecto y la config
 - [ ] Perfil del negocio e impresión Bluetooth.
 - [ ] Cuenta bancaria, CoDi y eventos confirmados por el backend.
 - [ ] Validación en teléfonos/tabletas y distribución de APK firmada.
-
-## 📥 Distribución
-
-La APK se ofrecerá desde la landing después de guardar un formulario de datos esenciales. Se acompañará de una guía de instalación externa y actualización. El formulario de descarga es independiente de la cuenta Google dentro de la app.
-
-**Aún no hay una APK disponible para descargar.**
