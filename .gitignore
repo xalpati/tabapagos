@@ -1,4 +1,10 @@
 # Miscellaneous
+/docs/
+[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
+.agents/
+.codex/
+.claude/
+
 *.class
 *.lock
 *.log
