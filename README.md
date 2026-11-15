@@ -82,7 +82,7 @@ La compatibilidad Bluetooth y los formatos se comprobarán con equipos físicos 
 | Componente | Ubicación y función |
 |---|---|
 | **Flutter + Dart** | Este repositorio: interfaz Android para móvil/tableta y operación comercial local |
-| **Laravel + PHP + MySQL** | [tabaagos_api](https://github.com/xalpati/tabaagos_api): identidad, cuentas bancarias, cobros, webhook y eventos |
+| **Laravel + PHP + MySQL** | [tabapagos_api](https://github.com/xalpati/tabapagos_api): identidad, cuentas bancarias, cobros, webhook y eventos |
 | **Vue** | Landing en un repositorio independiente: presentación, registro previo a descarga y guía de instalación |
 
 La persistencia local y los complementos Android se seleccionarán al preparar la base técnica. El tema visual y la versión mínima de Android siguen por definir.
