@@ -1,110 +1,117 @@
 <div align="center">
 
-# 📱 Tabapagos
+# 📱 Tabapagos POS
 
 ### Punto de venta para micronegocios en teléfonos y tabletas Android
 
-**Flutter · Dart · Operación local · Efectivo · CoDi · Tickets Bluetooth**
+**Flutter · Dart · SQLite local · Efectivo · CoDi Banxico · Impresión Bluetooth**
 
 </div>
 
-> 🚧 **En desarrollo — fase de diseño.** Este repositorio está preparado para alojar la app Android. Las funciones descritas son el alcance previsto; todavía no existe una aplicación ejecutable ni una APK publicada.
+> ✅ **Aplicación funcional en producción.** Punto de venta móvil autónomo con gestión de catálogo e inventario local, escáner nativo de códigos de barras, cobros en efectivo con cálculo de cambio, cobros digitales CoDi (QR dinámico y notificación push celular) conectados con Pey/Banxico, confirmación instantánea por Firebase Cloud Messaging (FCM) e impresión de tickets térmicos Bluetooth de 58 mm y 80 mm con autocorte.
 
 ## 🧭 Explorar
 
-[Propósito](#-propósito) · [Funciones](#-funciones-previstas) · [Conectividad](#-conectividad) · [Pagos](#-cobros-codi) · [Tecnología](#-tecnología-y-responsabilidades) · [Desarrollo](#-desarrollo)
+[Propósito](#-propósito) · [Backend API](#-backend-api) · [Funcionalidades Implementadas](#-funcionalidades-implementadas) · [Conectividad](#-conectividad) · [Cobros CoDi](#-cobros-codi-banxico) · [Impresión Térmica](#-impresión-térmica-bluetooth) · [Arquitectura y Tecnología](#-arquitectura-y-tecnología) · [Instalación y Compilación](#-instalación-y-compilación)
 
 ## 🎯 Propósito
 
-Tabapagos busca simplificar las ventas de pequeños negocios desde un teléfono o una tableta Android. Cada dispositivo conserva sus productos, existencias y ventas para continuar trabajando en efectivo cuando no haya conexión.
+Tabapagos simplifica la operación diaria de comercios y emprendedores desde un teléfono o tableta Android. Cada dispositivo almacena de forma autónoma su catálogo de productos, existencias, ventas y configuración en SQLite local para operar en efectivo sin depender de internet, e integra pagos digitales interbancarios CoDi en tiempo real cuando cuenta con conexión.
 
-Este repositorio **público** corresponde exclusivamente a la aplicación móvil/tableta. El backend se desarrolla en [tabapagos_api](https://github.com/xalpati/tabapagos_api).
+## ⚙️ Backend API
 
-## 🛍️ Funciones previstas
+El servicio de identidad, registro bancario CLABE, emisión de cobros CoDi, recepción de webhooks y despacho de eventos push firmados se encuentra en su propio repositorio público:
 
-| Área | Alcance |
+- **Repositorio Backend API**: [https://github.com/xalpati/tabapagos_api](https://github.com/xalpati/tabapagos_api)
+
+## 🛍️ Funcionalidades implementadas
+
+| Módulo | Características aplicadas |
 |---|---|
-| 🔐 Acceso | Registro e inicio de sesión con Google; un usuario por dispositivo |
-| 📦 Productos | Nombre, descripción, precio, existencias, tipo de venta y unidad de medida |
-| ⚖️ Presentaciones | Pieza, caja y granel; cajas como productos independientes y granel con cantidades fraccionarias |
-| 🛒 Venta con artículos | Selección de productos y cantidades, subtotales y total |
-| 💵 Cobro directo | Monto y concepto sin seleccionar artículos; admite efectivo o CoDi |
-| 📉 Inventario | Advertencia ante existencias insuficientes; continuar requiere confirmación del usuario |
-| 📊 Resumen diario | Total vendido, número de ventas, desglose por medio de pago y cancelaciones |
-| 🧾 Historial | Detalle de ventas y pagos de cobros originados en ese dispositivo |
-| ↩️ Cancelaciones | Conservar registro y reponer una sola vez las existencias descontadas |
-| 🏪 Perfil del negocio | Logo, nombre, dirección y contacto opcionales para los tickets |
-| 🖨️ Impresión | Impresoras térmicas Bluetooth de 58 y 80 mm |
-
-Los cobros directos no generan movimientos de inventario. El registro de un reembolso externo conserva importe, medio y referencia; no ejecuta una devolución bancaria automática.
+| 🔐 **Autenticación y Sesiones** | Registro e inicio de sesión por correo electrónico y contraseña con tokens por instalación (`installation_id`). Incluye modo demostración aislado para pruebas rápidas y limpieza automática de datos al crear una cuenta nueva. |
+| 📦 **Catálogo e Inventario** | Alta, edición y baja de productos con código de barras, categoría, precio e inventario local en SQLite. Búsqueda instantánea y filtrado por categorías. |
+| 📷 **Escáner de Códigos** | Lector nativo por cámara (`mobile_scanner`) para agregar artículos al carrito al instante o buscar productos por código de barras. |
+| 🛒 **Punto de Venta (POS)** | Dos modos de operación en pantalla principal: **Catálogo** (selección de productos, control de cantidades y carrito) y **Cobro Directo** (teclado numérico para monto libre y concepto sin afectar inventario). |
+| 💵 **Cobro en Efectivo** | Cálculo automático de cambio, botones de denominación rápida ($20, $50, $100, $200, $500) y botón de pago exacto. |
+| 📲 **Cobro CoDi QR y Push** | Generación de código QR dinámico oficial de Banxico por venta (`CODI_QR`) y envío de solicitud de cobro por notificación push al número celular del comprador a 10 dígitos (`CODI_PUSH`). |
+| 🔔 **Confirmación Push FCM** | Recepción en tiempo real (primer y segundo plano) de eventos JWS firmados (`payment.received`) vía Firebase Cloud Messaging, con alerta sonora automática, cierre de venta, impresión de ticket y envío de acuse (`ACK`). |
+| 🏦 **Cuenta Bancaria CLABE** | Pantalla de vinculación bancaria con validación de dígito verificador CLABE (18 dígitos), detección automática de institución bancaria y consulta de estado de activación (`PENDING` / `ACTIVE`). |
+| 🧾 **Historial y Corte de Caja** | Registro detallado de ventas del dispositivo con folio, fecha/hora, método de pago (`EFECTIVO`, `CODI`, `CODI_PUSH`), referencia de transacción, desglose de artículos y reimpresión de tickets. |
+| 🏪 **Perfil del Negocio** | Configuración local del nombre del comercio, RFC/identificador, dirección, teléfono y mensaje de pie de ticket, además de selector de tema claro/oscuro. |
+| 🖨️ **Impresora Bluetooth** | Escaneo, emparejamiento, reconexión automática en segundo plano e impresión ESC/POS en impresoras térmicas Bluetooth de **58 mm y 80 mm** con soporte de código QR nativo y pulso de autocorte. |
 
 ## 📶 Conectividad
 
 | Operación | Sin internet | Con internet |
 |---|---|---|
-| Productos e inventario locales | ✅ | ✅ |
-| Ventas y cobros directos en efectivo | ✅ | ✅ |
-| Consulta de información ya guardada | ✅ | ✅ |
-| Tickets en impresora Bluetooth compatible | ✅ | ✅ |
-| Primer acceso con Google | — | ✅ |
-| Registro y activación de cuenta bancaria | — | ✅ |
-| Creación de cobros CoDi y recepción de nuevos eventos | — | ✅ |
+| Catálogo, precios y control de inventario local | ✅ | ✅ |
+| Ventas de catálogo y cobros directos en efectivo | ✅ | ✅ |
+| Historial de ventas y corte de caja local | ✅ | ✅ |
+| Impresión y reimpresión de tickets por Bluetooth | ✅ | ✅ |
+| Registro e inicio de sesión del comerciante | — | ✅ |
+| Vinculación y validación de cuenta bancaria CLABE | — | ✅ |
+| Emisión de cobros CoDi (QR / Push) y confirmación FCM | — | ✅ |
 
-El acceso offline se habilitará después del primer inicio de sesión. Cada dispositivo mantiene información independiente, incluso al usar la misma cuenta Google en otro equipo. No se contempla sincronización comercial ni restauración del catálogo y las ventas desde la nube.
+Cada dispositivo conserva su propia base de datos comercial independiente. El backend no replica el catálogo ni el detalle de ventas en efectivo.
 
-## 💳 Cobros CoDi
+## 💳 Cobros CoDi Banxico
 
-La integración se realizará mediante [Pey](https://pey.mx/) y el backend de Tabapagos. Cada usuario podrá registrar una cuenta bancaria; los cobros requieren conexión y estado **ACTIVE**.
+La integración se realiza a través de [tabapagos_api](https://github.com/xalpati/tabapagos_api) y [Pey](https://pey.mx/):
 
-| Modalidad | Experiencia prevista |
+1. **CoDi QR Dinámico (`CODI_QR`)**: Genera e ilustra en pantalla el código QR oficial de Banxico con el monto exacto de la venta para que el cliente lo escanee desde su banca móvil.
+2. **CoDi Notificación Push (`CODI_PUSH`)**: Solicita el número telefónico de 10 dígitos del cliente y envía el requerimiento de cobro directamente a su aplicación bancaria registrada en CoDi.
+3. **Confirmación sin Polling**: En cuanto el cliente autoriza la transferencia en su banco, el webhook del proveedor notifica al backend y este envía un evento push firmado con RS256 a la app mediante Firebase Cloud Messaging. La aplicación valida el sobre JWS, reproduce el sonido de confirmación, registra la venta como pagada, imprime el comprobante y responde con el acuse durable (`APPLIED`).
+
+## 🖨️ Impresión térmica Bluetooth
+
+- Conexión directa mediante perfil Bluetooth Serial (SPP) con reconexión automática al iniciar la aplicación.
+- Soporte configurable para rollos térmicos de **80 mm** (48 columnas) y **58 mm** (32 columnas).
+- Comandos nativos ESC/POS para encabezado del negocio, tabla de artículos, totales, efectivo recibido, cambio, folio de venta, referencia CoDi y comando de corte automático de papel (`GS V`).
+- Prueba de impresión integrada en el panel de configuración de impresora.
+
+## 🧱 Arquitectura y tecnología
+
+```text
+lib/
+├── config/          # Constantes de entorno y temas visuales (claro/oscuro)
+├── database/        # Persistencia local SQLite (productos, ventas, ajustes, sesión)
+├── models/          # Modelos de datos (Product, Sale, SaleItem, BusinessProfile)
+├── screens/         # Pantallas: POS, Cobro Modal, Login, Productos, Historial, Banco, Impresora, Ajustes
+├── services/        # Servicios: ApiService, FcmService, PrinterService, AudioService
+└── utils/           # Utilidades y validador algorítmico de CLABE interbancaria
+```
+
+| Componente | Tecnología |
 |---|---|
-| QR con impresora configurada | Ticket con detalle de venta y QR |
-| QR sin impresora | Código visible en pantalla para escanear |
-| Solicitud push al comprador | Captura del teléfono para enviar el requerimiento de pago |
+| Framework UI | Flutter 3 / Material 3 |
+| Lenguaje | Dart 3 |
+| Base de datos local | SQLite (`sqflite`) |
+| Mensajería Push | `firebase_core`, `firebase_messaging` (FCM HTTP v1) |
+| Escáner de cámara | `mobile_scanner` |
+| Renderizado QR | `qr_flutter` |
+| Impresión Bluetooth | `print_bluetooth_thermal` (ESC/POS 58 mm / 80 mm) |
+| Backend remoto | [tabapagos_api](https://github.com/xalpati/tabapagos_api) (Laravel 13 · PHP · MySQL) |
 
-Un ticket emitido antes de la confirmación indica **pendiente de pago**. El pago se confirmará mediante webhook en el backend y un evento firmado enviado a la app, con procesamiento local una sola vez, acuse y reenvío de eventos pendientes. No se consultará periódicamente una API para verificar pagos.
-
-La activación bancaria también llegará por evento. La consulta al abrir la app se limitará a cuentas registradas que aún no estén validadas/activas.
-
-> 🧩 El QR fijo reutilizable está contemplado en el alcance; su asociación inequívoca con una venta sigue pendiente de diseño. QR por operación y solicitudes push requieren validación real de la integración.
-
-## 🖨️ Tickets de 58 y 80 mm
-
-- Ancho guardado por impresora, con selección manual cuando no pueda detectarse.
-- Datos opcionales del negocio impresos solo si están configurados.
-- Detalle de artículos, cantidades e importes; concepto e importe en cobro directo.
-- Funcionamiento local sin depender de internet.
-
-La compatibilidad Bluetooth y los formatos se comprobarán con equipos físicos antes de anunciar modelos soportados.
-
-## 🧱 Tecnología y responsabilidades
-
-| Componente | Ubicación y función |
-|---|---|
-| **Flutter + Dart** | Este repositorio: interfaz Android para móvil/tableta y operación comercial local |
-| **Laravel + PHP + MySQL** | [tabapagos_api](https://github.com/xalpati/tabapagos_api): identidad, cuentas bancarias, cobros, webhook y eventos |
-
-La persistencia local y los complementos Android se seleccionarán al preparar la base técnica. El tema visual y la versión mínima de Android siguen por definir.
-
-## 🔒 Seguridad prevista
-
-Las credenciales privadas de Pey permanecerán en el backend. La aplicación tendrá autorización por usuario/dispositivo, almacenamiento privado y validación de los eventos recibidos. La configuración y las claves de firma no se publicarán en el repositorio.
-
-Estos controles forman parte del diseño; su implementación y comprobación están pendientes.
-
-## 🛠️ Desarrollo
+## 🛠️ Instalación y compilación
 
 ```bash
 git clone https://github.com/xalpati/tabapagos.git
 cd tabapagos
 ```
 
-Actualmente el contenido versionado es la presentación del proyecto y la configuración inicial de Git. Los comandos de instalación, ejecución, pruebas y compilación se añadirán cuando exista la base Flutter y se fijen sus dependencias.
+Instalar dependencias y ejecutar en un dispositivo Android conectado:
 
-### Próximas entregas
+```powershell
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```
 
-- [ ] Base Flutter y acceso inicial con Google.
-- [ ] Productos, ventas en efectivo, inventario e historial local.
-- [ ] Perfil del negocio e impresión Bluetooth.
-- [ ] Cuenta bancaria, CoDi y eventos confirmados por el backend.
-- [ ] Validación en teléfonos/tabletas y distribución de APK firmada.
+Generar el artefacto APK de producción firmado:
+
+```powershell
+flutter build apk --release
+```
+
+El archivo resultante se genera en `build/app/outputs/flutter-apk/app-release.apk`. Requires Android 7.0 (API 24) o superior.
