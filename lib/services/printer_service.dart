@@ -1,8 +1,12 @@
+import 'dart:io';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:intl/intl.dart';
+import 'package:image/image.dart' as img;
+import 'package:flutter/foundation.dart';
 import '../models/sale.dart';
 import '../models/business_profile.dart';
+import '../database/db_helper.dart';
 import '../config/constants.dart';
 
 class PrinterService {
@@ -15,9 +19,24 @@ class PrinterService {
   /// Obtiene los dispositivos Bluetooth emparejados en el teléfono
   Future<List<BluetoothInfo>> getPairedDevices() async {
     try {
+      // Solicitar y comprobar permisos de Bluetooth en Android 12+
+      final bool hasPermission = await PrintBluetoothThermal.isPermissionBluetoothGranted;
+      if (!hasPermission) {
+        debugPrint('Permisos de Bluetooth no concedidos todavía');
+        return [];
+      }
+
+      // Comprobar si Bluetooth está encendido
+      final bool isEnabled = await PrintBluetoothThermal.bluetoothEnabled;
+      if (!isEnabled) {
+        debugPrint('Bluetooth apagado en el teléfono');
+        return [];
+      }
+
       final List<BluetoothInfo> list = await PrintBluetoothThermal.pairedBluetooths;
       return list;
     } catch (e) {
+      debugPrint('Error al obtener lista de Bluetooth emparejados: $e');
       return [];
     }
   }
@@ -76,6 +95,25 @@ class PrinterService {
 
       // Inicializar y resetear estilo
       bytes += generator.reset();
+
+      // Si existe logotipo del negocio configurado, imprimirlo al inicio
+      final logoPath = await DbHelper.instance.getLogoPath();
+      if (logoPath != null && logoPath.isNotEmpty && File(logoPath).existsSync()) {
+        try {
+          final bytesImg = await File(logoPath).readAsBytes();
+          final decoded = img.decodeImage(bytesImg);
+          if (decoded != null) {
+            // Ancho recomendado para papel de 80mm: máx 384 px
+            final resized = decoded.width > 384
+                ? img.copyResize(decoded, width: 384)
+                : decoded;
+            bytes += generator.imageRaster(resized, align: PosAlign.center);
+            bytes += generator.emptyLines(1);
+          }
+        } catch (e) {
+          debugPrint('Error al imprimir logotipo en ticket: $e');
+        }
+      }
 
       // Encabezado
       bytes += generator.text(
@@ -151,18 +189,23 @@ class PrinterService {
       bytes += generator.emptyLines(1);
 
       // Forma de pago y cambio
-      bytes += generator.text('Forma de pago: ${sale.paymentMethod}', styles: const PosStyles(bold: true));
+      final isCodiPush = sale.paymentMethod == 'CODI_PUSH';
+      final isCodi = sale.paymentMethod.startsWith('CODI');
+      bytes += generator.text('Forma de pago: ${isCodiPush ? 'CoDi Push (Celular)' : sale.paymentMethod}', styles: const PosStyles(bold: true));
       if (sale.paymentMethod == 'EFECTIVO') {
         bytes += generator.text('Recibido: \$${sale.amountPaid.toStringAsFixed(2)}');
         bytes += generator.text('Cambio:   \$${sale.change.toStringAsFixed(2)}', styles: const PosStyles(bold: true));
-      } else if (sale.paymentMethod == 'CODI') {
-        bytes += generator.text('Cobro Digital CoDi (Banxico)', styles: const PosStyles(bold: true));
+      } else if (isCodi) {
+        bytes += generator.text(
+          isCodiPush ? 'Cobro CoDi por Notificación Celular' : 'Cobro Digital CoDi (Banxico)',
+          styles: const PosStyles(bold: true),
+        );
         if (sale.peyPaymentId != null) {
           bytes += generator.text('ID Transacción: ${sale.peyPaymentId}');
         }
       }
 
-      // Código QR en ticket si fue CoDi
+      // Código QR en ticket si fue CoDi QR
       if (sale.paymentMethod == 'CODI' && codiQrData != null && codiQrData.isNotEmpty) {
         bytes += generator.emptyLines(1);
         bytes += generator.text('Comprobante CoDi:', styles: const PosStyles(align: PosAlign.center, bold: true));
@@ -174,8 +217,11 @@ class PrinterService {
       bytes += generator.text(p.ticketFooter, styles: const PosStyles(align: PosAlign.center));
       bytes += generator.text('Generado por Tabapagos POS', styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB));
 
-      // Alimentación de papel antes del corte (4 líneas)
-      bytes += generator.feed(4);
+      // Alimentación de papel antes del corte (configurable por el usuario)
+      final feedLines = await DbHelper.instance.getFeedLines();
+      if (feedLines > 0) {
+        bytes += generator.feed(feedLines);
+      }
 
       // Comando nativo ESC/POS de Autocorte total (GS V 0 = 0x1D, 0x56, 0x00)
       bytes += [0x1D, 0x56, 0x00];
@@ -198,7 +244,20 @@ class PrinterService {
       final generator = Generator(PaperSize.mm80, profileGenerator);
       List<int> bytes = [];
 
-      bytes += generator.reset();
+      // Logotipo si existe
+      final testLogoPath = await DbHelper.instance.getLogoPath();
+      if (testLogoPath != null && testLogoPath.isNotEmpty && File(testLogoPath).existsSync()) {
+        try {
+          final bytesImg = await File(testLogoPath).readAsBytes();
+          final decoded = img.decodeImage(bytesImg);
+          if (decoded != null) {
+            final resized = decoded.width > 384 ? img.copyResize(decoded, width: 384) : decoded;
+            bytes += generator.imageRaster(resized, align: PosAlign.center);
+            bytes += generator.emptyLines(1);
+          }
+        } catch (_) {}
+      }
+
       bytes += generator.text(
         'TABAPAGOS POS',
         styles: const PosStyles(
@@ -222,7 +281,10 @@ class PrinterService {
       bytes += generator.qrcode('https://tabapagos.xalpati.com', size: QRSize.size4);
       bytes += generator.emptyLines(1);
       bytes += generator.text('www.xalpati.com', styles: const PosStyles(align: PosAlign.center));
-      bytes += generator.feed(4);
+      final feedLines = await DbHelper.instance.getFeedLines();
+      if (feedLines > 0) {
+        bytes += generator.feed(feedLines);
+      }
       // Autocorte
       bytes += [0x1D, 0x56, 0x00];
 

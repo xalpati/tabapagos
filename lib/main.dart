@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'config/theme.dart';
 import 'database/db_helper.dart';
 import 'services/printer_service.dart';
+import 'services/fcm_service.dart';
 import 'screens/pos_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,11 +16,21 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  bool hasSession = false;
+
   // Inicializar base de datos SQLite local
   try {
     await DbHelper.instance.database;
+    hasSession = await DbHelper.instance.hasActiveSession();
   } catch (e) {
     debugPrint('Error al inicializar base de datos: $e');
+  }
+
+  // Inicializar notificaciones push Firebase FCM (ADR-002)
+  try {
+    await FcmService.instance.initialize();
+  } catch (e) {
+    debugPrint('Error al inicializar FCM en main: $e');
   }
 
   // Intentar autoconexión en segundo plano a la impresora "BlueTooth Printer" de 80mm
@@ -26,11 +38,12 @@ void main() async {
     PrinterService.instance.autoConnect();
   } catch (_) {}
 
-  runApp(const TabapagosApp());
+  runApp(TabapagosApp(hasSession: hasSession));
 }
 
 class TabapagosApp extends StatefulWidget {
-  const TabapagosApp({super.key});
+  final bool hasSession;
+  const TabapagosApp({super.key, required this.hasSession});
 
   @override
   State<TabapagosApp> createState() => _TabapagosAppState();
@@ -53,7 +66,7 @@ class _TabapagosAppState extends State<TabapagosApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _themeMode,
-      home: const PosScreen(),
+      home: widget.hasSession ? const PosScreen() : const LoginScreen(),
     );
   }
 }

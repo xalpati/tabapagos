@@ -14,6 +14,11 @@ class AudioService {
     }
   }
 
+  /// Emite un bip corto general para teclas o adiciones
+  static Future<void> playBeep() async {
+    await playScanBeep();
+  }
+
   /// Emite un tono de éxito al completar un cobro
   static Future<void> playSuccessBeep() async {
     try {

@@ -104,19 +104,24 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                             final date = DateTime.tryParse(sale.createdAt);
                             final formattedDate = date != null ? DateFormat('HH:mm - dd/MM').format(date) : sale.createdAt;
 
+                            final isCodi = sale.paymentMethod.startsWith('CODI');
+                            final isPush = sale.paymentMethod == 'CODI_PUSH';
+
                             return Card(
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: sale.paymentMethod == 'CODI'
+                                  backgroundColor: isCodi
                                       ? Colors.amber.withOpacity(0.2)
                                       : AppTheme.primary.withOpacity(0.2),
                                   child: Icon(
-                                    sale.paymentMethod == 'CODI' ? Icons.qr_code_2 : Icons.payments_outlined,
-                                    color: sale.paymentMethod == 'CODI' ? Colors.amber.shade900 : AppTheme.primary,
+                                    isPush
+                                        ? Icons.phone_android
+                                        : (isCodi ? Icons.qr_code_2 : Icons.payments_outlined),
+                                    color: isCodi ? Colors.amber.shade900 : AppTheme.primary,
                                   ),
                                 ),
                                 title: Text('${sale.folio} • \$${sale.total.toStringAsFixed(2)} MXN', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text('${sale.items.length} artículos • $formattedDate (${sale.paymentMethod})'),
+                                subtitle: Text('${sale.items.length} artículos • $formattedDate (${isPush ? 'CoDi Push' : sale.paymentMethod})'),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.print, color: AppTheme.primary),
                                   tooltip: 'Reimprimir ticket (80mm)',

@@ -80,8 +80,8 @@ class DbHelper {
       )
     ''');
 
-    // Sembrar productos de Modo Demo orientados a micronegocios mexicanos
-    await _seedDemoProducts(db);
+    // Nota: Los productos demo solo se siembran cuando se activa explícitamente el Modo Demo.
+    // Para usuarios nuevos o cuentas registradas, el catálogo comienza limpio.
   }
 
   Future<void> _seedDemoProducts(Database db) async {
@@ -250,7 +250,7 @@ class DbHelper {
         COUNT(id) as total_sales,
         COALESCE(SUM(total), 0) as total_amount,
         COALESCE(SUM(CASE WHEN payment_method = 'EFECTIVO' THEN total ELSE 0 END), 0) as cash_amount,
-        COALESCE(SUM(CASE WHEN payment_method = 'CODI' THEN total ELSE 0 END), 0) as codi_amount
+        COALESCE(SUM(CASE WHEN payment_method LIKE 'CODI%' THEN total ELSE 0 END), 0) as codi_amount
       FROM sales
       WHERE created_at LIKE '$todayStr%' AND status = 'COMPLETED'
     ''');
@@ -264,5 +264,227 @@ class DbHelper {
       };
     }
     return {'total_sales': 0, 'total_amount': 0, 'cash_amount': 0, 'codi_amount': 0};
+  }
+
+  // --- Operaciones de Configuración y Ajustes Generales ---
+
+  Future<String?> getSetting(String key, {String? defaultValue}) async {
+    final db = await instance.database;
+    final res = await db.query(
+      'settings',
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    if (res.isNotEmpty) {
+      return res.first['value'] as String?;
+    }
+    return defaultValue;
+  }
+
+  Future<void> setSetting(String key, String value) async {
+    final db = await instance.database;
+    await db.insert(
+      'settings',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  // --- Control de Modo Demo ---
+
+  Future<bool> isDemoMode() async {
+    final val = await getSetting('demo_mode', defaultValue: 'true');
+    return val == 'true';
+  }
+
+  Future<void> setDemoMode(bool enabled) async {
+    await setSetting('demo_mode', enabled ? 'true' : 'false');
+  }
+
+  Future<void> clearCatalog() async {
+    final db = await instance.database;
+    await db.delete('products');
+  }
+
+  /// Limpia por completo los datos de catálogo, ventas y configuraciones bancarias/impresoras
+  /// para que un usuario recién registrado empiece 100% en blanco.
+  Future<void> clearAllDataForNewUser() async {
+    final db = await instance.database;
+    await db.delete('products');
+    await db.delete('sale_items');
+    await db.delete('sales');
+    await db.delete('settings', where: "key LIKE 'bank_%' OR key LIKE 'printer_%' OR key LIKE 'business_%'");
+  }
+
+  /// Siembra los productos demo solo si el catálogo está actualmente vacío
+  Future<void> seedDemoProductsIfEmpty() async {
+    final db = await instance.database;
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM products')) ?? 0;
+    if (count == 0) {
+      await _seedDemoProducts(db);
+    }
+  }
+
+  Future<void> restoreDemoCatalog() async {
+    final db = await instance.database;
+    await db.delete('products');
+    await _seedDemoProducts(db);
+    await setDemoMode(true);
+  }
+
+  // --- Control de Impresora Bluetooth Registrada ---
+
+  Future<Map<String, String>?> getSavedPrinter() async {
+    final mac = await getSetting('printer_mac');
+    final name = await getSetting('printer_name');
+    if (mac != null && mac.isNotEmpty) {
+      return {
+        'mac': mac,
+        'name': name ?? 'BlueTooth Printer',
+      };
+    }
+    return null;
+  }
+
+  Future<void> savePrinter(String mac, String name) async {
+    await setSetting('printer_mac', mac);
+    await setSetting('printer_name', name);
+  }
+
+  Future<void> forgetPrinter() async {
+    final db = await instance.database;
+    await db.delete('settings', where: 'key IN (?, ?)', whereArgs: ['printer_mac', 'printer_name']);
+  }
+
+  // --- Control de Cuenta Bancaria Registrada ---
+
+  Future<Map<String, String>?> getBankAccount() async {
+    final clabe = await getSetting('bank_clabe');
+    if (clabe == null || clabe.isEmpty) return null;
+
+    return {
+      'alias': (await getSetting('bank_alias')) ?? 'Cuenta Principal',
+      'holder_name': (await getSetting('bank_holder_name')) ?? '',
+      'clabe': clabe,
+      'entity': (await getSetting('bank_entity')) ?? 'PERSON',
+      'status': (await getSetting('bank_status')) ?? 'ACTIVE',
+      'bank_name': (await getSetting('bank_name')) ?? 'Banco Nacional',
+    };
+  }
+
+  Future<void> saveBankAccount({
+    required String alias,
+    required String holderName,
+    required String clabe,
+    required String entity,
+    required String bankName,
+    String status = 'ACTIVE',
+  }) async {
+    await setSetting('bank_alias', alias);
+    await setSetting('bank_holder_name', holderName);
+    await setSetting('bank_clabe', clabe);
+    await setSetting('bank_entity', entity);
+    await setSetting('bank_name', bankName);
+    await setSetting('bank_status', status);
+  }
+
+  Future<void> deleteBankAccount() async {
+    final db = await instance.database;
+    await db.delete('settings', where: 'key LIKE ?', whereArgs: ['bank_%']);
+  }
+
+  // --- Control de Sesión y Autenticación ---
+
+  Future<bool> hasActiveSession() async {
+    final loggedIn = await getSetting('auth_logged_in', defaultValue: '0');
+    final isDemo = await getSetting('is_demo_session', defaultValue: '0');
+    return loggedIn == '1' || isDemo == '1';
+  }
+
+  Future<bool> isGoogleLoggedIn() async {
+    final loggedIn = await getSetting('auth_logged_in', defaultValue: '0');
+    return loggedIn == '1';
+  }
+
+  Future<void> startUserSession({
+    required String token,
+    required String email,
+    required String name,
+    required String deviceId,
+  }) async {
+    await setSetting('auth_logged_in', '1');
+    await setSetting('is_demo_session', '0');
+    await setSetting('auth_token', token);
+    await setSetting('auth_user_email', email);
+    await setSetting('auth_user_name', name);
+    await setSetting('auth_device_id', deviceId);
+    await setDemoMode(false);
+  }
+
+  Future<void> startGoogleSession({
+    required String token,
+    required String email,
+    required String name,
+    required String deviceId,
+  }) async {
+    await startUserSession(
+      token: token,
+      email: email,
+      name: name,
+      deviceId: deviceId,
+    );
+  }
+
+  Future<String?> getAuthToken() async {
+    return await getSetting('auth_token');
+  }
+
+  Future<String?> getUserEmail() async {
+    return await getSetting('auth_user_email');
+  }
+
+  Future<String?> getUserName() async {
+    return await getSetting('auth_user_name');
+  }
+
+  Future<bool> isDemoSession() async {
+    final isDemo = await getSetting('is_demo_session', defaultValue: '0');
+    final email = await getSetting('auth_user_email', defaultValue: '');
+    return isDemo == '1' || email == 'demo@tabapagos.com';
+  }
+
+  Future<void> startDemoSession() async {
+    await setSetting('auth_logged_in', '0');
+    await setSetting('is_demo_session', '1');
+    await setDemoMode(true);
+    await seedDemoProductsIfEmpty();
+  }
+
+  Future<void> logout() async {
+    await setSetting('auth_logged_in', '0');
+    await setSetting('is_demo_session', '0');
+    await setSetting('auth_token', '');
+  }
+
+  // --- Opciones de Ticket e Impresión ---
+
+  Future<String?> getLogoPath() async {
+    final p = await getSetting('business_logo_path');
+    if (p != null && p.trim().isNotEmpty) return p.trim();
+    return null;
+  }
+
+  Future<void> setLogoPath(String? path) async {
+    await setSetting('business_logo_path', path ?? '');
+  }
+
+  Future<int> getFeedLines() async {
+    final v = await getSetting('ticket_feed_lines', defaultValue: '3');
+    return int.tryParse(v ?? '3') ?? 3;
+  }
+
+  Future<void> setFeedLines(int lines) async {
+    await setSetting('ticket_feed_lines', lines.toString());
   }
 }

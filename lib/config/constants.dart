@@ -2,9 +2,8 @@ class AppConstants {
   static const String appName = 'Tabapagos POS';
   static const String appVersion = '1.0.0';
   
-  // URLs de API
+  // URL de API en la nube (Hostinger)
   static const String productionApiUrl = 'https://tabapagos.xalpati.com/api';
-  static const String localApiUrl = 'http://localhost:8000/api';
   
   // Claves de API externas inyectables por entorno o delegadas al backend seguro
   static const String defaultPeyApiKey = String.fromEnvironment('PEY_API_KEY', defaultValue: '');
